@@ -1,0 +1,141 @@
+---
+title: "Coding Assignment 8: Data Visualizaton in R"
+output: pdf_document # change to if you cannot knit to pdf html_notebook
+---
+
+# Practice with Data Viz in Python
+
+**Overview:** For this assignment, you will practice working creating data visualizations with R. 
+
+**Directions:** Using one of the data files of your choice, create **two** data visualizations. At least one of the data visualizations should include at least two variables in your data. You may use any of the types of data visualizations we reviewed in class on 3/20, making modifications for a different analysis (different variables) or you can build a different kind of visualization. You may use online galleries for inspiration and for code templates to edit. But you still should not be using generative AI (e.g., ChatGPT, Bing, etc.). I encourage you to use `ggplot2` but you may also experiment with plotting functions in Base R. Experiment with different themes, colors, etc. 
+
+Data sets to choose from (same as before or you may pick a new dataset, as long as it is **not** what you are using for your project):
+- [SleepStudy.csv](https://www.rdocumentation.org/packages/Lock5withR/versions/1.2.2/topics/SleepStudy) (used in class previously)
+- colleges.csv (used in class previously)
+- [billionaires.csv](https://corgis-edu.github.io/corgis/csv/billionaires/) (new - available on github)
+- [parking_citations.csv](https://corgis-edu.github.io/corgis/csv/parking_citations/) (new - availabe on githib)
+
+Read in the data and load the required libraries. [2 POINTS]
+```{r setup, warning=FALSE}
+# loading in applicable libraries
+library("readr")
+library("ggplot2")
+library("dplyr")
+
+# reading in Parking Citations data as parkingData
+parkingData <- read_csv("C:/Users/kcchi/Downloads/DSC_201/data/parking_citations.csv")
+```
+
+
+##### Data Visualization 1: Bar Graph (Cumulative Ticketed Vehicles by State, excluding Virginia)
+
+
+**Part A**: Plotting the data
+```{r bar graph}
+# loading in ggplot2 library
+library(ggplot2)
+
+# creating an object to collect the counts for vehicles ticketed, organized by state
+vehicleState <- table(parkingData$Data.State)
+
+# convert vehicleState to a data frame
+vehicleState <- data.frame(vehicleState)
+
+# ordering vehicleState by descending frequency order, show top 10, exclude VA
+vehicleState_sorted <- vehicleState[order(vehicleState$Freq, decreasing = TRUE), ] 
+vehicleState_sorted <- head(vehicleState_sorted, 10)
+vehicleState_sorted <- subset(vehicleState_sorted, Var1 != "VA")
+
+# creating a barplot to organize the table, reorder graph values in descending order
+ggplot(vehicleState_sorted, aes(x= reorder(Var1, -Freq), y=Freq)) +
+         geom_col() +
+         theme_classic() +
+         labs(title = "Cumulative Ticketed Vehicles by State, excluding VA", 
+              x = "State", 
+              y = "Count of Vehicles Ticketed")
+```
+
+**Part B**: Discussing the success of the plot
+
+- The bar plot highlights the top ten states that vehicles are ticketed from, in descending order. It does a good job with displaying this information, as the original dataset (without filtering for the top ten ticketed, via "head()") does not provide as much meticulous detail as this specific view. I tried to keep the style of the graph to follow a traditional, minimalist pattern (hence using "theme_classic()") and having the vertical bars be proportional to its values. Regarding improvements that would be nice to have, but could be challenging to implement: I would like to have the y-values on top of each bar, although it might obstruct the main idea to be concluded from the bar plot.
+
+**Part C**: Describing the results
+
+- Regarding the results of the plot, the top ten ticketed states includes: NC, FL, MD, TX, PA, GA, SC, CA, and NY. This count excludes Virginia, which is where the data is from. The ticketed amount for NC represents around 2.4k vehicles, while the count for NY is close to 500 vehicles. Since NC is close to VA geographically, it would make sense that NC represents the highest non-VA origin ticketed state. 
+
+- I specifically parsed out the data to show the top ten view because a holistic view doesn't really enable for as meticulous comprehension. Additionally, the data is right skewed, which makes it difficult to tell smaller data values from a "zoomed" out view (i.e., not filtering out for the top 10). Hence, this particular plot helped me learn more about the most commonly ticketed state license plates within the Norfolk, VA area.
+
+- Some limitations of this data is that it is a granular view, looking into the top ten ticketed states. Thus, it is difficult to make a conclusive argument based on this sole data view, as it excludes a huge majority of states.
+
+##### Data Visualization 2: Histogram (Cumulative Ticketed Vehicles Count, Displayed by Fine Amount)
+
+**Part A**: Plotting the Data
+```{r histogram, warn.conflicts=FALSE}
+# loading in ggplot2 library
+library(ggplot2)
+library (dplyr)
+
+# excluding negative fine values from data
+fineData <- parkingData %>% filter(Data.Fine >0)
+
+# create a histogram
+ggplot(fineData, aes(x = Data.Fine)) +
+      geom_histogram(binwidth=20, fill="blue") +
+      labs(title="Frequency of Ticketed Fine Amounts (Cumulative Count)",
+      x ="Fine Amount",
+      y="Ticketed Vehicles") +
+      theme_minimal()
+```
+
+**Part B**: Discussing the success of the plot
+
+- As I wanted to visualize the amount of frequency of fine amounts distributed around Norfolk, I think a histogram was an appropriate measure to do so. Regarding the design of the plot, I wanted to keep a minimal theme (done via "theme_minimal()"), separate fine amounts into bin widths of a $20 fine interval, and filter out negative fine values (which would skew the data). The histogram worked well as a means of showing the numeric spread of the fine, but I think it would be nice to integrate a heatmap into the data to show the distribution and its frequency more vividly.
+
+**Part C**: Describing the results
+
+- Looking at the results of the plot, it is evidence that the most ticketed fine amount falls around 100 dollars. It shows that the majority of ticketed fines fall close to this mark, with the second most fined amount being near 150 dollars. The data findings present that these infractions are perhaps a result of somewhat major violations regarding parking. Although it presents a clear way for us to understand the spread of these violation fines, there is also a limitation: the plot, alone, doesn't detail what these fine violations are.
+
+##### Data Visualization 3: Line Plot (Count of Tickets by Year, 2018 to 2021)
+
+
+**Part A**: Plotting the Data
+```{r line plot data prep}
+# loading in the library
+library(dplyr)
+
+# creating a table to display cumulative count of tickets by year
+tickets_by_year <- parkingData %>%
+    filter(Date.Year != 2022) %>%  # exclude 2022 data because it has one entry
+  group_by(Date.Year) %>%
+  summarise(Count = n())
+
+# printing out the table
+print(tickets_by_year)
+```
+
+```{r line plot}
+# loading in ggplot2 library
+library(ggplot2)
+
+# creating the plot, based on the tickets_by_year object
+ggplot(tickets_by_year, aes(x=Date.Year, y=Count)) +
+         geom_line(color="blue") + 
+         theme_classic() +
+         labs(title="Count of Tickets by Year, 2018 to 2021", 
+              x ="Year", 
+              y = "Count of Ticketed Vehicles")
+```
+
+**Part B**: Discussing the success of the plot
+
+- The line graph does a good job of displaying the trend line for ticketed vehicle totals over the years. I wanted to display such a trend across time, thus I felt that this type of data visualization was appropriate to display it. Additionally, I wanted to follow a classic theme for the graph (used via "theme_classic()") and made the line graph color blue to help it stand out.
+
+- One thing I wanted to improve but found challenging was adjusting the y-axis scale. It is evident that the scale misleadingly "begins" at 10,000, but should begin at 0. For some reason, my graph generated in such a way, but I was unsure of how to adjust for this.
+
+**Part C**: Describing the results
+
+- Looking at the results of the data, it is evidence that the years between 2018 to 2019 had the highest growth for cumulative ticket count. We see that with 2019 to 2020, there is a rapid decline due to the COVID-19 pandemic, and even fewer between 2020 to 2021 for a similar reason. Using a line graph to visualize the trend between years is effective, as it plots points across time; the line, itself, shows an increase or decrease between values across different time points. 
+
+- As previously mentioned, a limitation is that the y-axis is deceiving, as it shows the scale "beginning" at 10,000. With this limited scope of data between the years of 2018 to 2021, it is difficult to conclude assumptions regarding cumulative ticket count across all time for Norfolk, VA. Additionally, one data point for the year 2022 was removed to prevent a false data skewage, as the other years have multiple data entries.
+
+
