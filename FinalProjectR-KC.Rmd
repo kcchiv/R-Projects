@@ -1,0 +1,118 @@
+---
+title: "Final Project - R"
+author: "Kelly Chiv"
+date: "`r Sys.Date()`"
+output: html_document
+---
+<style type = "text/css">
+  p, code.r, pre, h1, h2, h3, h4, h5{
+    font-size: 5pt;
+  }
+</style>
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, out.width =  "10%", size = '\tiny')
+```
+
+### - **Introduction** - :
+This report serves the **purpose** of analyzing the data related to fish toxicity, and compromises of six main molecular descriptors being tested along with the 908 chemicals used (via UCI machine learning repository website). The **respective data set we will be working with** is called "qsar_fish_toxicity.csv" (**original data can be attained from**: https://archive.ics.uci.edu/ml/machine-learning-databases/00504/).
+
+**Variables within the data set** include: MLOGP (molecular properties), CIC0 (information indices), GATS1i (2D autocorrelations), NdssC (atom-type counts), NdsCH ((atom-type counts), and SM1_Dz (2D matrix-based descriptors). In terms of the *R packages* used to read in the data, we will use the "tidyverse" package and its read_delim() function since our delimiter is non-standard, along with the GGally, dplyr, and ggplot2 packages to plot graphs.
+
+In the code chunk below, we are using the **tidyverse package** and the read_delim (non-standard delimiter) to read in the Fish Toxicity data file. Afterwards, we rename the columns of the dataset via col_names() and show the first five rows ("snippet") of it using head().
+```{r, warning = FALSE}
+library(tidyverse)
+fishToxicity <- read_delim("qsar_fish_toxicity.csv", ";", 
+                           col_names = c("MLOGP", "CICO", "GATS1i", "NdssC", "NdsCH", "SM1_Dz", "LC50"))
+head(fishToxicity, n=5)
+```
+
+### - **EDA** - :
+This section will be where we explore the data, specifically using the LC50 response variable.
+
+Here, we will **provide numerical summaries from our LC50 data.** We will be exploring the relationship between LC50 and the NdsCH and NdssC categorical variables at different levels and combinations of other variables.
+```{r}
+library(dplyr)
+options(width = 200)
+for(summaries in group_split(fishToxicity, NdsCH)){
+  sumStats <- summary(summaries$LC50)
+  sumStats['SD'] = sd(summaries$LC50)
+  sumStats['NdsCH Lvl'] = summaries$NdsCH[1]
+print(sumStats) # displaying the summary statistics for LC50 + NdsCH
+}
+
+for(summaries in group_split(fishToxicity, NdssC)){
+  sumStats <- summary(summaries$LC50)
+  sumStats['SD'] = sd(summaries$LC50)
+  sumStats['NdssC Lvl'] = summaries$NdssC[1]
+print(sumStats) # displaying the summary statistics for LC50 + NdssC
+}
+```
+
+Here, we are **creating plots of the LC50 variable.** In this example, we set the x-axis as MLOGP, the y-axis as LC50, and create a scatterplot. Afterwards, we create different graphs based on the "NdssC" variable (scatter plot via ggplot2 package, a 'pairs' style plot via GGally package, and a histogram). 
+```{r}
+library(ggplot2)
+g <- ggplot(data = fishToxicity, aes(x= MLOGP, y=LC50))
+g + geom_point() + geom_smooth(method = lm) +
+  facet_wrap(~NdssC)  # creating plot 1, our scatter plot using MLOGP and LC50 as our variables
+
+library(GGally) 
+ggpairs(fishToxicity, aes(alpha = 0.5, color = "LC50"), columns = c("LC50", "SM1_Dz", "NdsCH", "CICO")) # creating plot 2, our 'pairs' style plot via GGally and using LC50, SM1_Dz, NdsCH, and CICO as our variables
+
+i <- ggplot(data = fishToxicity, aes(x= LC50))
+i + geom_histogram() +
+facet_wrap(~NdsCH) # creating plot 3, our histogram plot using LC50 and NdsCH
+```
+
+Here, we are **setting up a function** (called "binaryIdentifier") to identify **"low"** (original variable value < or = median value of variable) and **"high"** (original variable value > median value of variable). Afterwards, we will create the new binary variable function, then use the apply() function to apply our function to each column of the data frame. We then turn the results into a data frame and save it into an R object (binaryIdentifierResults).
+```{r}
+binaryIdentifier <- function(vector) {
+  return(if_else(vector <= median(vector), "LOW","HIGH"))
+}
+# creating the new binary variable function (identifies high and low binary for each column)
+
+binaryIdentifierResults <- as.data.frame(apply(fishToxicity, 2, binaryIdentifier))
+# using apply() function and applying it to each column of the data frame, then turning the result into a data frame and saving it into an R object (binaryIdentifierResults)
+```
+
+Since we have already created the new binary variables, we will now **create a two-way contingency table with a corresponding side-by-side stacked bar plot visual**. The variables we choose after LC50 are SM1_Dz and GATS1i, which can be seen in their respective bar plots.
+```{r}
+table(binaryIdentifierResults$LC50, binaryIdentifierResults$SM1_Dz)
+table(binaryIdentifierResults$LC50, binaryIdentifierResults$GATS1i)
+ggplot(data = binaryIdentifierResults, aes(x=LC50, fill = SM1_Dz)) + geom_bar(position = "dodge")
+ggplot(data = binaryIdentifierResults, aes(x=LC50, fill = GATS1i)) + geom_bar(position = "dodge")
+```
+
+### - **Multiple Linear Regression Models** - :
+
+Here, we are going to predict a value of LC50 using other variables from the original data set, fishToxicity. We will develop **four** linear regression models, with two respectively including either a interaction or polynomial term.
+```{r}
+summary(lm(LC50~MLOGP + GATS1i + CICO + NdssC + SM1_Dz + NdsCH, data = fishToxicity)) # our first linear regression model (standard model with all variables)
+
+summary(lm(LC50~I(CICO^2) + I(MLOGP^2) + I(SM1_Dz^2), data = fishToxicity)) # our second linear regression model (with polynomial terms)
+
+summary(lm(LC50~MLOGP*GATS1i + CICO*NdssC + SM1_Dz*NdsCH, data = fishToxicity)) # our third linear regression model (with interaction terms)
+
+summary(lm(LC50~MLOGP + GATS1i + CICO + NdssC + SM1_Dz + NdsCH +I(CICO^2) + I(MLOGP^2) + I(SM1_Dz^2) +MLOGP*GATS1i + CICO*NdssC + SM1_Dz*NdsCH, data = fishToxicity)) # our fourth and final linear regression model (a mix of all three of the previous models)
+
+```
+
+Now, we will choose a model (the fourth model from above), display its diagnostic plot and comment on normality and model fit. 
+```{r}
+plot(lm(LC50~MLOGP + GATS1i + CICO + NdssC + SM1_Dz + NdsCH +I(CICO^2) + I(MLOGP^2) + I(SM1_Dz^2) +MLOGP*GATS1i + CICO*NdssC + SM1_Dz*NdsCH, data = fishToxicity)) # using the fourth model to display plots and comment on model fit
+```
+
+##### **Observations from Relevant Graphs (first two plots)**:
+
+1) **Residual vs Fitted Plot**: For the most part, the points are randomly scattered at around the same distance (which is the normal expectation for Residual vs Fitted plots), so the model does a good job of fitting the fishToxicity data.
+
+2) **Normal Q-Q Plot**: For the most part, our points resemble a straight line (which is the normal expectation for Q-Q plots), so again, the model does a good job of fitting the fishToxicity data.
+
+Here, we will **use two models of our choice (with one at least being a MLR model) to predict LC50 at the median setting for each predictor (explanatory) variable**. The models we will use are the first and second models from the four different linear regression models created, respectively.
+```{r}
+predict(lm(LC50~MLOGP + GATS1i + CICO + NdssC + SM1_Dz + NdsCH, data = fishToxicity), newdata = data.frame(MLOGP = median(fishToxicity$MLOGP), GATS1i = median(fishToxicity$GATS1i), CICO = median(fishToxicity$CICO), NdssC = median(fishToxicity$NdssC), SM1_Dz = median(fishToxicity$SM1_Dz), NdsCH = median(fishToxicity$NdsCH))) # using first linear regression model
+
+predict(lm(LC50~I(CICO^2) + I(MLOGP^2) + I(SM1_Dz^2), data = fishToxicity), newdata = data.frame(CICO = median(fishToxicity$CICO), MLOGP = median(fishToxicity$MLOGP), SM1_Dz = median(fishToxicity$SM1_Dz))) # using second linear regression model
+```
+
